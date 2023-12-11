@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-16" ?>
+<Application>
+	<forms>
+		<action type="add">
+			<form appformnumber="-1" FormType="-1" type="3" BorderStyle="3" uid="Logo" title="New Form 1" visible="1" default_button="" pane="0" color="0" left="0" top="580" width="235" height="40" client_width="232" client_height="62" AutoManaged="0" SupportedModes="15" ObjectType="">
+				<datasources>
+					<dbdatasources>
+						<action type="add"/>
+					</dbdatasources>
+					<userdatasources>
+						<action type="add"/>
+					</userdatasources>
+				</datasources>
+				<Menus/>
+				<items>
+					<action type="add">
+						<item uid="1" type="117" left="5" tab_order="0" width="223" top="5" height="31" visible="1" enabled="1" from_pane="0" to_pane="0" disp_desc="0" right_just="0" description="" linkto="" forecolor="-1" backcolor="-1" text_style="0" font_size="-1" supp_zeros="0" AffectsFormMode="1">
+							<AutoManagedAttribute/>
+							<specific picture="">
+								<databind databound="0" table="" alias=""/>
+							</specific>
+						</item>
+					</action>
+				</items>
+				<ChooseFromListCollection>
+					<action type="add">
+						<ChooseFromList UniqueID="-1" ObjectType="-1" MultiSelection="0" IsSystem="1"/>
+					</action>
+				</ChooseFromListCollection>
+				<DataBrowser/>
+				<Settings Enabled="0"/>
+			</form>
+		</action>
+	</forms>
+</Application>

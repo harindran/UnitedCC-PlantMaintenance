@@ -1,0 +1,173 @@
+﻿-------------------------FMS in PM Measurement Master for Fetching Name from Code-------------------
+
+SELECT $[$3.Code.0]
+------------------------------------
+
+
+Create PROC [dbo].[@sp_SM_PMD_MachineMaster]  ( @Runhours AS  numeric(10,6) , @PmdCode as nvarchar(20))
+AS 
+BEGIN
+
+UPDATE [@MIPL_PM_OMAC] set U_RunHours=@Runhours where Code=@PmdCode
+		
+END
+
+
+
+Create PROC [dbo].[@sp_SM_PMD_VehicleMaster]  ( @Runhours AS  numeric(10,6) , @PmdCode as nvarchar(20))
+AS 
+BEGIN
+
+UPDATE [@MIPL_PM_OVHL] set U_RunHours=@Runhours where Code=@PmdCode
+		
+END
+
+
+Create PROC [dbo].[@sp_SM_PT_PMD_DLCCRenewal]
+@DocEntry NVARCHAR(255)
+AS
+BEGIN
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+  DECLARE  @NCardNo as nvarchar(100)    ,   @NIsseDt as date           , 
+           @NExpDt as date              ,   @NIsuePlc nvarchar(254)    , 
+           @Linenum as int              ,   @Code as int
+  DECLARE CardUpdate CURSOR for
+  
+       select U_NCardNo,U_NIsseDt,U_NExpDt,U_NIsuePlc ,U_LineNum,U_Code from [@MIPL_PM_CRD1] where DocEntry=@DocEntry
+        
+       OPEN  CardUpdate   
+           
+       FETCH  NEXT FROM CardUpdate INTO 
+              @NCardNo   ,    @NIsseDt    , 
+              @NExpDt    ,    @NIsuePlc   ,               
+              @Linenum   ,    @Code   
+       WHILE @@FETCH_STATUS = 0     
+       BEGIN  -- DO SOMETHING ...  
+          
+            
+          Begin
+              if  Exists(select * from [@MIPL_PM_CRD1] where DocEntry=@DocEntry and 
+                         U_NCardNo IS NOT NULL AND U_NCardNo <> '' )
+          
+          Update [@MIPL_PM_LAC1] set U_CardNo=@NCardNo ,U_ExpirDt=@NExpDt, U_IsuePlce=@NIsuePlc, U_IssueDt=@NIsseDt where            LineId=@Linenum and Code=@Code    
+              
+          End                 
+               
+       FETCH NEXT FROM CardUpdate INTO 
+       
+            @NCardNo   ,    @NIsseDt    , 
+            @NExpDt    ,    @NIsuePlc   ,               
+            @Linenum   ,    @Code 
+            
+END     
+       CLOSE CardUpdate     
+       DEALLOCATE CardUpdate   
+    
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
+END
+
+
+Create PROCedure [dbo].[@sp_SM_PT_PMD_Machine_Status_Updation] @DocEntry int 
+As
+Begin
+declare @MACNo varchar(30)
+select @MACNo= U_VHLNo from [@MIPL_PM_OJOC] where  DocEntry = @DocEntry
+	Update [@MIPL_PM_OMAC] set U_status='A' where Code=@MACNo
+END
+
+
+
+Create PROC [dbo].[@sp_SM_PT_PMD_Mobdemob] ( @DocEntry AS NVARCHAR(250))
+AS 
+BEGIN
+
+---- Updating Vehicle or Machine Location------------
+BEGIN
+---- Update the Location to Master Screen ------
+UPDATE  v SET v.U_Location =  b.U_ToLoc  FROM [@MIPL_PM_OMOB] a INNER JOIN  [@MIPL_PM_MOB1] B ON a.DocEntry = b.DocEntry 
+INNER JOIN [@MIPL_PM_OVHL] v ON b.U_VHLID = v.Code AND b.U_Type = 'V'
+WHERE a.DocEntry = @DocEntry
+
+UPDATE  m SET m.U_Location =  b.U_ToLoc  FROM [@MIPL_PM_OMOB] a INNER JOIN  [@MIPL_PM_MOB1] B ON a.DocEntry = b.DocEntry 
+INNER JOIN [@MIPL_PM_OMAC]  m ON b.U_VHLID = m.Code AND b.U_Type = 'M'
+WHERE a.DocEntry = @DocEntry
+
+END
+
+END
+
+
+Create PROCedure [dbo].[@sp_SM_PT_PMD_Vehicle_Status_Updation]  @DocEntry int 
+As
+Begin
+declare @VHLNo varchar(30)
+select  @VHLNo= U_VHLNo from [@MIPL_PM_OJOC] where  DocEntry = @DocEntry
+	    Update [@MIPL_PM_OVHL] set U_status='A' where Code=@VHLNo
+END
+
+
+ 
+ -------------------------------------------------- PMD Module --------------------------------------------------------------- 
+ ----------- Mob-Demob Data  ---------------- 
+ IF  @object_type = 'OMOB'  and @transaction_type In (N'A',N'U')
+ Begin
+		 EXEC  [dbo].[@sp_SM_PT_PMD_Mobdemob] @list_of_cols_val_tab_del  
+ End 
+ 
+ 
+
+ -----------  PMD DL/CC Renewal Updation  ----------------------------
+ IF  @object_type = 'OCRD'  and @transaction_type In (N'A',N'U')
+ Begin
+		 EXEC  [dbo].[@sp_SM_PT_PMD_DLCCRenewal]  @list_of_cols_val_tab_del  
+ End 
+ 
+  -----------  PMD DL/CC Closing  ----------------------------
+ IF  @object_type = 'OCRD'  and @transaction_type In (N'A',N'U')
+ Begin
+ 
+	 UPDATE [@MIPL_PM_OCRD]  SET Status ='C' WHERE  DocEntry=@list_of_cols_val_tab_del
+ End 
+  ------------------------------------------------------------ --------------------------------------------------------------------
+---- Machine/Vehicle Master Status Updation - Breakdown Slip ... ----
+if @object_type='OBDS' and @transaction_type IN ( N'U',N'A')
+begin	
+declare @MACNo varchar(30)
+declare @VHLNo varchar(30)
+IF EXISTS ( Select Status from [@MIPL_PM_OBDS] where  U_Type='MC' OR U_Type='IN' OR U_Type='EQ' and
+            DocEntry = @list_of_cols_val_tab_del ) 
+	BEGIN	
+	
+	select @MACNo= U_ItemCode from [@MIPL_PM_OBDS] where  DocEntry = @list_of_cols_val_tab_del
+	Update [@MIPL_PM_OMAC] set U_status='I' where Code=@MACNo
+	End 			  	   	    
+IF EXISTS ( Select Status from [@MIPL_PM_OBDS] where  U_Type='VH'  and
+            DocEntry = @list_of_cols_val_tab_del ) 
+	BEGIN	
+		select @VHLNo= U_ItemCode from [@MIPL_PM_OBDS] where DocEntry = @list_of_cols_val_tab_del
+	    Update [@MIPL_PM_OVHL] set U_status='I' where Code=@VHLNo
+	End 			  	   	    
+
+End 
+-----------------------------------------------------------------------------
+---Converted on 21st Aug 2020
+ if :object_type='OBDS' and :transaction_type IN ( N'U',N'A')
+begin	
+declare MACNo varchar(30)
+declare VHLNo varchar(30)
+IF EXISTS ( Select "Status" from "@MIPL_PM_OBDS" where  "U_Type"='MC' OR "U_Type"='IN' OR "U_Type"='EQ' and
+            "DocEntry" = :list_of_cols_val_tab_del ) ;
+	BEGIN
+	Select :MACNo= "U_ItemCode" from "@MIPL_PM_OBDS" where  "DocEntry" = :list_of_cols_val_tab_del;
+	Update "@MIPL_PM_OMAC" set "U_status"='I' where "Code"=:MACNo
+	End 			  	   	    
+IF EXISTS ( Select "Status" from "@MIPL_PM_OBDS" where  "U_Type"='VH'  and
+            "DocEntry" = :list_of_cols_val_tab_del ) 
+	BEGIN	
+		select :VHLNo= "U_ItemCode" from "@MIPL_PM_OBDS" where "DocEntry" =:list_of_cols_val_tab_del;
+	    Update "@MIPL_PM_OVHL" set "U_status"='I' where "Code"=:VHLNo;
+	End 		  	   	    
+End
+
+--------------------------------------------------------------------------------------------- 
